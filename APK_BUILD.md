@@ -28,7 +28,7 @@ sudo apt install -y \
   zlib1g-dev libncurses5-dev libncursesw5-dev \
   libtinfo6 cmake libffi-dev libssl-dev
 python3 -m pip install --user --upgrade pip
-python3 -m pip install --user buildozer cython
+python3 -m pip install --user buildozer "Cython<3"
 ```
 
 Build:
