@@ -57,6 +57,7 @@ class BotConfig:
     login_url: str
     username: str
     password: str
+    profile_dir: str
     stake: float
     count: int
     min_odds: float
@@ -79,6 +80,11 @@ def parse_args() -> BotConfig:
     parser.add_argument("--login-url", default=os.getenv("BETIKA_LOGIN_URL", DEFAULT_LOGIN_URL))
     parser.add_argument("--username", default=os.getenv("BETIKA_USERNAME", DEFAULT_USERNAME))
     parser.add_argument("--password", default=os.getenv("BETIKA_PASSWORD", DEFAULT_PASSWORD))
+    parser.add_argument(
+        "--profile-dir",
+        default=os.getenv("BETIKA_PROFILE_DIR", ""),
+        help="Chrome user profile directory (persists cookies/session on self-hosted runners).",
+    )
     parser.add_argument("--stake", type=float, default=float(os.getenv("BETIKA_STAKE", "2.0")))
     parser.add_argument("--count", type=int, default=int(os.getenv("BETIKA_COUNT", "39")))
     parser.add_argument("--min-odds", type=float, default=float(os.getenv("BETIKA_MIN_ODDS", "1.01")))
@@ -134,6 +140,7 @@ def parse_args() -> BotConfig:
         login_url=args.login_url,
         username=args.username,
         password=args.password,
+        profile_dir=(args.profile_dir or "").strip(),
         stake=args.stake,
         count=args.count,
         min_odds=args.min_odds,
@@ -159,6 +166,9 @@ class BetikaSeleniumBot:
 
     def _build_driver(self) -> WebDriver:
         options = ChromeOptions()
+        if self.config.profile_dir:
+            os.makedirs(self.config.profile_dir, exist_ok=True)
+            options.add_argument(f"--user-data-dir={self.config.profile_dir}")
         if self.config.headless:
             options.add_argument("--headless=new")
         if self.config.headless or os.getenv("CI", "").lower() == "true":
@@ -299,6 +309,14 @@ class BetikaSeleniumBot:
             self._safe_click(submit)
 
             if not self._wait_until_logged_in(timeout=self.config.timeout):
+                if not self.config.headless and self.config.manual_login_wait > 0:
+                    print(
+                        "Auto-login did not complete. Waiting for manual login "
+                        f"({self.config.manual_login_wait}s)..."
+                    )
+                    if self._wait_until_logged_in(timeout=self.config.manual_login_wait):
+                        print("Login successful (manual).")
+                        return
                 raise BotError(self._diagnose_login_failure())
 
             print("Login successful.")

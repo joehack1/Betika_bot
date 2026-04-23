@@ -26,6 +26,18 @@ on:
         description: "Place bet (true/false)"
         required: false
         default: "false"
+      headless:
+        description: "Run browser headless (true/false)"
+        required: false
+        default: "true"
+      manual_login_wait:
+        description: "Seconds to allow manual login (headed runs only)"
+        required: false
+        default: "0"
+      profile_dir:
+        description: "Chrome profile dir (persists session on self-hosted runners)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -36,7 +48,7 @@ concurrency:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BETIKA_RUNS_ON || 'ubuntu-latest' }}
     timeout-minutes: 25
     env:
       BETIKA_USERNAME: ${{ secrets.BETIKA_USERNAME }}
@@ -48,6 +60,9 @@ jobs:
       BETIKA_TIMEOUT: "45"
       BETIKA_MAX_SCROLLS: "60"
       BETIKA_EXECUTE: ${{ github.event.inputs.execute || secrets.BETIKA_EXECUTE || 'false' }}
+      BETIKA_HEADLESS: ${{ github.event.inputs.headless || vars.BETIKA_HEADLESS || 'true' }}
+      BETIKA_MANUAL_LOGIN_WAIT: ${{ github.event.inputs.manual_login_wait || vars.BETIKA_MANUAL_LOGIN_WAIT || '0' }}
+      BETIKA_PROFILE_DIR: ${{ github.event.inputs.profile_dir || vars.BETIKA_PROFILE_DIR || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,7 +85,16 @@ jobs:
             exit 2
           fi
 
-          args=(--headless --debug-login)
+          args=(--debug-login)
+          if [[ "${BETIKA_HEADLESS,,}" == "true" ]]; then
+            args+=(--headless)
+          fi
+          if [[ -n "${BETIKA_MANUAL_LOGIN_WAIT:-}" && "${BETIKA_MANUAL_LOGIN_WAIT}" != "0" ]]; then
+            args+=(--manual-login-wait "${BETIKA_MANUAL_LOGIN_WAIT}")
+          fi
+          if [[ -n "${BETIKA_PROFILE_DIR:-}" ]]; then
+            args+=(--profile-dir "${BETIKA_PROFILE_DIR}")
+          fi
           if [[ "${BETIKA_EXECUTE,,}" == "true" ]]; then
             args+=(--execute)
           fi
