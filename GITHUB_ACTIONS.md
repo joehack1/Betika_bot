@@ -39,4 +39,4 @@ You can override these from **Actions → Betika bot → Run workflow** (manual 
 
 - GitHub scheduled workflows run in **UTC**. The cron in `.github/workflows/betika-bot.yml` is set to `06:05, 14:05, 22:05` Africa/Nairobi.
 - On failures, the workflow uploads `debug_artifacts/` (screenshot + HTML) when `--debug-login` triggers.
-- GitHub-hosted Ubuntu runners may not have Google Chrome available. The workflow installs Chromium and auto-detects the binary path (override with repo variable `BETIKA_CHROME_BINARY`).
+- GitHub-hosted Ubuntu runners can be flaky for installing Chromium because Ubuntu packages may rely on Snap. The workflow instead auto-detects an existing Chrome/Chromium binary (override with repo variable `BETIKA_CHROME_BINARY`), and works best on a self-hosted runner.

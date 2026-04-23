@@ -67,20 +67,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Chromium (for ubuntu runners)
-        if: runner.os == 'Linux'
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          if sudo apt-get install -y chromium chromium-driver; then
-            echo "Installed chromium + chromium-driver."
-          elif sudo apt-get install -y chromium chromium-chromedriver; then
-            echo "Installed chromium + chromium-chromedriver."
-          else
-            sudo apt-get install -y chromium-browser
-            echo "Installed chromium-browser."
-          fi
-
       - name: Detect Chrome binary
         if: runner.os == 'Linux'
         shell: bash
@@ -108,7 +94,7 @@ jobs:
           done
 
           echo "Could not find a Chrome/Chromium binary on this runner." >&2
-          echo "Try setting repo variable BETIKA_CHROME_BINARY to the correct path." >&2
+          echo "Try setting repo variable BETIKA_CHROME_BINARY to the correct path or use a self-hosted runner." >&2
           exit 2
 
       - uses: actions/setup-python@v5
