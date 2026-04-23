@@ -1,0 +1,86 @@
+name: Betika bot
+
+on:
+  schedule:
+    # GitHub schedules run in UTC. These are 06:05, 14:05, 22:05 Africa/Nairobi (UTC+3).
+    - cron: "5 3,11,19 * * *"
+  workflow_dispatch:
+    inputs:
+      stake:
+        description: "Stake (KES)"
+        required: false
+        default: "2"
+      count:
+        description: "Number of games to pick"
+        required: false
+        default: "20"
+      max_odds:
+        description: "Maximum odd per pick"
+        required: false
+        default: "1.40"
+      min_odds:
+        description: "Minimum odd per pick"
+        required: false
+        default: "1.01"
+      execute:
+        description: "Place bet (true/false)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: betika-bot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BETIKA_USERNAME: ${{ secrets.BETIKA_USERNAME }}
+      BETIKA_PASSWORD: ${{ secrets.BETIKA_PASSWORD }}
+      BETIKA_STAKE: ${{ github.event.inputs.stake || '2' }}
+      BETIKA_COUNT: ${{ github.event.inputs.count || '20' }}
+      BETIKA_MIN_ODDS: ${{ github.event.inputs.min_odds || '1.01' }}
+      BETIKA_MAX_ODDS: ${{ github.event.inputs.max_odds || '1.40' }}
+      BETIKA_TIMEOUT: "45"
+      BETIKA_MAX_SCROLLS: "60"
+      BETIKA_EXECUTE: ${{ github.event.inputs.execute || secrets.BETIKA_EXECUTE || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run bot
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${BETIKA_USERNAME:-}" || -z "${BETIKA_PASSWORD:-}" ]]; then
+            echo "Missing secrets: BETIKA_USERNAME and/or BETIKA_PASSWORD" >&2
+            exit 2
+          fi
+
+          args=(--headless --debug-login)
+          if [[ "${BETIKA_EXECUTE,,}" == "true" ]]; then
+            args+=(--execute)
+          fi
+
+          python betika.py "${args[@]}"
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug_artifacts
+          path: debug_artifacts
+          if-no-files-found: ignore

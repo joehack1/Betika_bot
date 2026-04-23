@@ -43,8 +43,8 @@ except ImportError as exc:
 
 DEFAULT_HOME_URL = "https://www.betika.com/en-ke"
 DEFAULT_LOGIN_URL = "https://www.betika.com/en-ke/login?next=%2F"
-DEFAULT_USERNAME = "0795080677"
-DEFAULT_PASSWORD = "4133"
+DEFAULT_USERNAME = ""
+DEFAULT_PASSWORD = ""
 
 
 class BotError(RuntimeError):
@@ -79,12 +79,12 @@ def parse_args() -> BotConfig:
     parser.add_argument("--login-url", default=os.getenv("BETIKA_LOGIN_URL", DEFAULT_LOGIN_URL))
     parser.add_argument("--username", default=os.getenv("BETIKA_USERNAME", DEFAULT_USERNAME))
     parser.add_argument("--password", default=os.getenv("BETIKA_PASSWORD", DEFAULT_PASSWORD))
-    parser.add_argument("--stake", type=float, default=2.0)
-    parser.add_argument("--count", type=int, default=39)
-    parser.add_argument("--min-odds", type=float, default=1.01)
-    parser.add_argument("--max-odds", type=float, default=1.35)
-    parser.add_argument("--timeout", type=int, default=25)
-    parser.add_argument("--max-scrolls", type=int, default=45)
+    parser.add_argument("--stake", type=float, default=float(os.getenv("BETIKA_STAKE", "2.0")))
+    parser.add_argument("--count", type=int, default=int(os.getenv("BETIKA_COUNT", "39")))
+    parser.add_argument("--min-odds", type=float, default=float(os.getenv("BETIKA_MIN_ODDS", "1.01")))
+    parser.add_argument("--max-odds", type=float, default=float(os.getenv("BETIKA_MAX_ODDS", "1.35")))
+    parser.add_argument("--timeout", type=int, default=int(os.getenv("BETIKA_TIMEOUT", "25")))
+    parser.add_argument("--max-scrolls", type=int, default=int(os.getenv("BETIKA_MAX_SCROLLS", "45")))
     parser.add_argument("--execute", action="store_true", help="Actually click the Place Bet button")
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--keep-open", action="store_true", help="Do not close browser after run")
@@ -107,6 +107,14 @@ def parse_args() -> BotConfig:
 
     args = parser.parse_args()
 
+    if not args.username:
+        raise SystemExit(
+            "--username is required (or set BETIKA_USERNAME as an environment variable / GitHub Secret)."
+        )
+    if not args.password:
+        raise SystemExit(
+            "--password is required (or set BETIKA_PASSWORD as an environment variable / GitHub Secret)."
+        )
     if args.stake <= 0:
         raise SystemExit("--stake must be greater than 0")
     if args.count <= 0:
@@ -148,6 +156,10 @@ class BetikaSeleniumBot:
         options = ChromeOptions()
         if self.config.headless:
             options.add_argument("--headless=new")
+        if self.config.headless or os.getenv("CI", "").lower() == "true":
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--window-size=1920,1080")
         options.add_argument("--disable-notifications")
         options.add_argument("--disable-popup-blocking")
         options.add_argument("--start-maximized")
@@ -210,80 +222,107 @@ class BetikaSeleniumBot:
             print("Already logged in.")
             return
 
-        if "/login" not in self.driver.current_url:
-            self.driver.get(self.config.login_url)
-            self._dismiss_cookie_banner()
+        try:
+            if "/login" not in self.driver.current_url:
+                self.driver.get(self.config.login_url)
+                self._dismiss_cookie_banner()
 
-        user_input = self._find_first_visible(
-            [
-                (By.CSS_SELECTOR, "input[name*='mobile']"),
-                (By.CSS_SELECTOR, "input[name*='phone']"),
-                (By.CSS_SELECTOR, "input[type='tel']"),
-                (By.CSS_SELECTOR, "input[name*='username']"),
-                (By.CSS_SELECTOR, "input[id*='phone']"),
-                (By.CSS_SELECTOR, "input[placeholder*='phone']"),
-                (By.CSS_SELECTOR, "input[placeholder*='Phone']"),
-                (By.CSS_SELECTOR, "input[aria-label*='phone']"),
-                (By.CSS_SELECTOR, "input[aria-label*='Phone']"),
-                (
-                    By.XPATH,
-                    "//label[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'phone number')]/following::input[1]",
-                ),
-                (
-                    By.XPATH,
-                    "//input[contains(translate(@placeholder, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'enter your phone number') or contains(translate(@placeholder, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'phone number') or contains(translate(@placeholder, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'e.g. 0712')]",
-                ),
-                (
-                    By.XPATH,
-                    "//input[contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'phone') or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'mobile') or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'username')]",
-                ),
-            ],
-            timeout=12,
-        )
-        if user_input is None:
-            raise BotError("Could not find username/mobile input on login page.")
+            user_input = self._find_first_visible(
+                [
+                    (By.CSS_SELECTOR, "input[name*='mobile']"),
+                    (By.CSS_SELECTOR, "input[name*='phone']"),
+                    (By.CSS_SELECTOR, "input[type='tel']"),
+                    (By.CSS_SELECTOR, "input[name*='username']"),
+                    (By.CSS_SELECTOR, "input[id*='phone']"),
+                    (By.CSS_SELECTOR, "input[placeholder*='phone']"),
+                    (By.CSS_SELECTOR, "input[placeholder*='Phone']"),
+                    (By.CSS_SELECTOR, "input[aria-label*='phone']"),
+                    (By.CSS_SELECTOR, "input[aria-label*='Phone']"),
+                    (
+                        By.XPATH,
+                        "//label[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'phone number')]/following::input[1]",
+                    ),
+                    (
+                        By.XPATH,
+                        "//input[contains(translate(@placeholder, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'enter your phone number') or contains(translate(@placeholder, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'phone number') or contains(translate(@placeholder, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'e.g. 0712')]",
+                    ),
+                    (
+                        By.XPATH,
+                        "//input[contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'phone') or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'mobile') or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'username')]",
+                    ),
+                ],
+                timeout=12,
+            )
+            if user_input is None:
+                raise BotError("Could not find username/mobile input on login page.")
 
-        pass_input = self._find_first_visible(
-            [
-                (By.CSS_SELECTOR, "input[type='password']"),
-                (By.CSS_SELECTOR, "input[name*='password']"),
-                (By.CSS_SELECTOR, "input[id*='password']"),
-                (By.CSS_SELECTOR, "input[placeholder*='password']"),
-                (By.CSS_SELECTOR, "input[placeholder*='Password']"),
-                (
-                    By.XPATH,
-                    "//label[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'password')]/following::input[1]",
-                ),
-                (
-                    By.XPATH,
-                    "//input[contains(translate(@placeholder, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'enter your password')]",
-                ),
-            ],
-            timeout=10,
-        )
-        if pass_input is None:
-            raise BotError("Could not find password input.")
+            pass_input = self._find_first_visible(
+                [
+                    (By.CSS_SELECTOR, "input[type='password']"),
+                    (By.CSS_SELECTOR, "input[name*='password']"),
+                    (By.CSS_SELECTOR, "input[id*='password']"),
+                    (By.CSS_SELECTOR, "input[placeholder*='password']"),
+                    (By.CSS_SELECTOR, "input[placeholder*='Password']"),
+                    (
+                        By.XPATH,
+                        "//label[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'password')]/following::input[1]",
+                    ),
+                    (
+                        By.XPATH,
+                        "//input[contains(translate(@placeholder, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'enter your password')]",
+                    ),
+                ],
+                timeout=10,
+            )
+            if pass_input is None:
+                raise BotError("Could not find password input.")
 
-        self._set_input_value(user_input, self.config.username)
-        self._set_input_value(pass_input, self.config.password)
+            self._set_input_value(user_input, self.config.username)
+            self._set_input_value(pass_input, self.config.password)
 
-        submit = self._find_first_visible(
-            [
-                (By.CSS_SELECTOR, "button[type='submit']"),
-                (By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'login')]"),
-                (By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sign in')]"),
-            ],
-            timeout=6,
-        )
-        if submit is None:
-            raise BotError("Could not find login submit button.")
+            submit = self._find_first_visible(
+                [
+                    (By.CSS_SELECTOR, "button[type='submit']"),
+                    (By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'login')]"),
+                    (By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sign in')]"),
+                ],
+                timeout=6,
+            )
+            if submit is None:
+                raise BotError("Could not find login submit button.")
 
-        self._safe_click(submit)
+            self._safe_click(submit)
 
-        if not self._wait_until_logged_in(timeout=self.config.timeout):
-            raise BotError("Login did not complete. Credentials or selectors may be incorrect.")
+            if not self._wait_until_logged_in(timeout=self.config.timeout):
+                raise BotError("Login did not complete. Credentials or selectors may be incorrect.")
 
-        print("Login successful.")
+            print("Login successful.")
+        except BotError:
+            if self.config.debug_login:
+                self._dump_debug_artifacts(prefix="login")
+            raise
+
+    def _dump_debug_artifacts(self, prefix: str) -> None:
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        safe_prefix = re.sub(r"[^a-zA-Z0-9_-]+", "_", prefix).strip("_") or "debug"
+        folder = os.path.join(os.getcwd(), "debug_artifacts")
+        os.makedirs(folder, exist_ok=True)
+
+        base = os.path.join(folder, f"{safe_prefix}_{timestamp}")
+        try:
+            self.driver.save_screenshot(f"{base}.png")
+        except WebDriverException:
+            pass
+        try:
+            with open(f"{base}.html", "w", encoding="utf-8") as handle:
+                handle.write(self.driver.page_source or "")
+        except OSError:
+            pass
+        try:
+            with open(f"{base}.txt", "w", encoding="utf-8") as handle:
+                handle.write(f"url={self.driver.current_url}\n")
+        except OSError:
+            pass
 
     def _is_logged_in(self) -> bool:
         # If login form or login CTA is visible, user is not authenticated yet.
