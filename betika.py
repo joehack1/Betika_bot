@@ -107,6 +107,11 @@ def parse_args() -> BotConfig:
 
     args = parser.parse_args()
 
+    if isinstance(args.username, str):
+        args.username = args.username.strip()
+    if isinstance(args.password, str):
+        args.password = args.password.strip()
+
     if not args.username:
         raise SystemExit(
             "--username is required (or set BETIKA_USERNAME as an environment variable / GitHub Secret)."
@@ -294,13 +299,34 @@ class BetikaSeleniumBot:
             self._safe_click(submit)
 
             if not self._wait_until_logged_in(timeout=self.config.timeout):
-                raise BotError("Login did not complete. Credentials or selectors may be incorrect.")
+                raise BotError(self._diagnose_login_failure())
 
             print("Login successful.")
         except BotError:
             if self.config.debug_login:
                 self._dump_debug_artifacts(prefix="login")
             raise
+
+    def _diagnose_login_failure(self) -> str:
+        try:
+            source = (self.driver.page_source or "").lower()
+        except WebDriverException:
+            source = ""
+
+        indicators = [
+            ("captcha", ("captcha", "recaptcha", "hcaptcha")),
+            ("verification code / otp", ("otp", "verification code", "one-time", "one time", "sms code", "enter code")),
+            ("rate limit / blocked", ("too many", "blocked", "suspicious", "unusual activity", "access denied")),
+        ]
+        for label, needles in indicators:
+            if any(needle in source for needle in needles):
+                return (
+                    "Login did not complete. A challenge page was detected "
+                    f"({label}). This commonly happens on GitHub-hosted runners/headless browsers. "
+                    "Use a self-hosted runner (your PC/VPS) or disable headless locally to complete login."
+                )
+
+        return "Login did not complete. Credentials may be incorrect, or the login page selectors changed."
 
     def _dump_debug_artifacts(self, prefix: str) -> None:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -320,7 +346,14 @@ class BetikaSeleniumBot:
             pass
         try:
             with open(f"{base}.txt", "w", encoding="utf-8") as handle:
+                title = ""
+                try:
+                    title = self.driver.title or ""
+                except WebDriverException:
+                    title = ""
                 handle.write(f"url={self.driver.current_url}\n")
+                if title:
+                    handle.write(f"title={title}\n")
         except OSError:
             pass
 

@@ -26,3 +26,4 @@ You can override these from **Actions → Betika bot → Run workflow** (manual 
 
 - GitHub scheduled workflows run in **UTC**. The cron in `.github/workflows/betika-bot.yml` is set to `06:05, 14:05, 22:05` Africa/Nairobi.
 - On failures, the workflow uploads `debug_artifacts/` (screenshot + HTML) when `--debug-login` triggers.
+- If the run fails at login even with correct credentials, Betika may be presenting an **OTP/CAPTCHA/“suspicious login”** challenge on GitHub-hosted runners. Check the uploaded `debug_artifacts/` screenshot/HTML; if this is the case, use a **self-hosted GitHub runner** (your PC/VPS) so the browser looks like your normal environment.
