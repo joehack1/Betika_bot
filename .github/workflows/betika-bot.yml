@@ -63,8 +63,15 @@ jobs:
       BETIKA_HEADLESS: ${{ github.event.inputs.headless || vars.BETIKA_HEADLESS || 'true' }}
       BETIKA_MANUAL_LOGIN_WAIT: ${{ github.event.inputs.manual_login_wait || vars.BETIKA_MANUAL_LOGIN_WAIT || '0' }}
       BETIKA_PROFILE_DIR: ${{ github.event.inputs.profile_dir || vars.BETIKA_PROFILE_DIR || '' }}
+      BETIKA_CHROME_BINARY: ${{ vars.BETIKA_CHROME_BINARY || '/usr/bin/chromium' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Chromium (for ubuntu runners)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium chromium-driver
 
       - uses: actions/setup-python@v5
         with:
@@ -94,6 +101,9 @@ jobs:
           fi
           if [[ -n "${BETIKA_PROFILE_DIR:-}" ]]; then
             args+=(--profile-dir "${BETIKA_PROFILE_DIR}")
+          fi
+          if [[ -n "${BETIKA_CHROME_BINARY:-}" ]]; then
+            args+=(--chrome-binary "${BETIKA_CHROME_BINARY}")
           fi
           if [[ "${BETIKA_EXECUTE,,}" == "true" ]]; then
             args+=(--execute)

@@ -58,6 +58,7 @@ class BotConfig:
     username: str
     password: str
     profile_dir: str
+    chrome_binary: str
     stake: float
     count: int
     min_odds: float
@@ -84,6 +85,11 @@ def parse_args() -> BotConfig:
         "--profile-dir",
         default=os.getenv("BETIKA_PROFILE_DIR", ""),
         help="Chrome user profile directory (persists cookies/session on self-hosted runners).",
+    )
+    parser.add_argument(
+        "--chrome-binary",
+        default=os.getenv("BETIKA_CHROME_BINARY", ""),
+        help="Path to Chrome/Chromium binary (useful on CI images without Google Chrome).",
     )
     parser.add_argument("--stake", type=float, default=float(os.getenv("BETIKA_STAKE", "2.0")))
     parser.add_argument("--count", type=int, default=int(os.getenv("BETIKA_COUNT", "39")))
@@ -141,6 +147,7 @@ def parse_args() -> BotConfig:
         username=args.username,
         password=args.password,
         profile_dir=(args.profile_dir or "").strip(),
+        chrome_binary=(args.chrome_binary or "").strip(),
         stake=args.stake,
         count=args.count,
         min_odds=args.min_odds,
@@ -166,6 +173,8 @@ class BetikaSeleniumBot:
 
     def _build_driver(self) -> WebDriver:
         options = ChromeOptions()
+        if self.config.chrome_binary:
+            options.binary_location = self.config.chrome_binary
         if self.config.profile_dir:
             os.makedirs(self.config.profile_dir, exist_ok=True)
             options.add_argument(f"--user-data-dir={self.config.profile_dir}")
@@ -175,6 +184,7 @@ class BetikaSeleniumBot:
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--window-size=1920,1080")
+            options.add_argument("--disable-gpu")
         options.add_argument("--disable-notifications")
         options.add_argument("--disable-popup-blocking")
         options.add_argument("--start-maximized")
@@ -183,7 +193,8 @@ class BetikaSeleniumBot:
             return webdriver.Chrome(options=options)
         except WebDriverException as exc:
             raise BotError(
-                "Could not start Chrome WebDriver. Ensure Chrome is installed and Selenium can download/use a driver."
+                "Could not start Chrome WebDriver. Ensure Chrome/Chromium is installed and Selenium can download/use a driver. "
+                f"Details: {exc}"
             ) from exc
 
     def close(self) -> None:
