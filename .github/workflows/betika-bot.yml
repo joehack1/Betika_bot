@@ -48,7 +48,7 @@ concurrency:
 
 jobs:
   run:
-    runs-on: ${{ vars.BETIKA_RUNS_ON || 'self-hosted' }}
+    runs-on: ${{ vars.BETIKA_RUNS_ON || 'ubuntu-latest' }}
     timeout-minutes: 25
     env:
       BETIKA_USERNAME: ${{ secrets.BETIKA_USERNAME }}
