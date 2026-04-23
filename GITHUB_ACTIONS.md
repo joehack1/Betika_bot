@@ -16,8 +16,8 @@ This repo includes a scheduled workflow that runs the Selenium bot **3 times per
 Betika may show an OTP/CAPTCHA/suspicious-login challenge on GitHub-hosted runners and headless browsers. For reliability, use a **self-hosted runner** (PC/VPS).
 
 1. Create a self-hosted runner in GitHub: **Settings → Actions → Runners → New self-hosted runner**.
-2. Add repo variable `BETIKA_RUNS_ON=self-hosted` (Settings → Secrets and variables → Actions → Variables).
-3. (Optional but recommended) Add repo variable `BETIKA_PROFILE_DIR=/home/runner/.cache/betika-bot/chrome-profile` so the bot can reuse a persisted Chrome session.
+2. (Optional) Add repo variable `BETIKA_RUNS_ON=self-hosted` (this workflow already defaults to `self-hosted`).
+3. (Recommended) Add repo variable `BETIKA_PROFILE_DIR=$HOME/.cache/betika-bot/chrome-profile` so the bot can reuse a persisted Chrome session.
 4. First-time session bootstrap (manual run):
    - Run **Actions → Betika bot → Run workflow**
    - Set `headless=false` and `manual_login_wait=180`

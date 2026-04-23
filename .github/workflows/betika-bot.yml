@@ -48,7 +48,7 @@ concurrency:
 
 jobs:
   run:
-    runs-on: ${{ vars.BETIKA_RUNS_ON || 'ubuntu-latest' }}
+    runs-on: ${{ vars.BETIKA_RUNS_ON || 'self-hosted' }}
     timeout-minutes: 25
     env:
       BETIKA_USERNAME: ${{ secrets.BETIKA_USERNAME }}
@@ -114,6 +114,10 @@ jobs:
           if [[ -z "${BETIKA_USERNAME:-}" || -z "${BETIKA_PASSWORD:-}" ]]; then
             echo "Missing secrets: BETIKA_USERNAME and/or BETIKA_PASSWORD" >&2
             exit 2
+          fi
+
+          if [[ -z "${BETIKA_PROFILE_DIR:-}" ]]; then
+            BETIKA_PROFILE_DIR="${HOME}/.cache/betika-bot/chrome-profile"
           fi
 
           args=(--debug-login)
