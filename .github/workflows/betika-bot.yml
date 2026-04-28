@@ -1,9 +1,7 @@
 name: Betika bot
 
 on:
-  schedule:
-    # GitHub schedules run in UTC. These are 06:05, 14:05, 22:05 Africa/Nairobi (UTC+3).
-    - cron: "5 3,11,19 * * *"
+  # Paused: disable scheduled runs. This workflow can only be run manually.
   workflow_dispatch:
     inputs:
       stake:
